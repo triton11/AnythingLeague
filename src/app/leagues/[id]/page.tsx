@@ -15,11 +15,11 @@ type LeagueMember = Database['public']['Tables']['league_members']['Row'] & {
 }
 type LeagueRound = Database['public']['Tables']['league_rounds']['Row']
 
-export default function LeagueDetailPage({
-  params,
-}: {
+interface LeagueDetailPageProps {
   params: { id: string }
-}) {
+}
+
+export default function LeagueDetailPage({ params }: LeagueDetailPageProps) {
   const router = useRouter()
   const [league, setLeague] = useState<League | null>(null)
   const [members, setMembers] = useState<LeagueMember[]>([])

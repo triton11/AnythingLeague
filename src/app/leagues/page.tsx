@@ -8,6 +8,10 @@ import type { User } from '@supabase/supabase-js'
 
 type League = Database['public']['Tables']['leagues']['Row']
 
+type LeagueMemberWithLeague = {
+  league: League
+}
+
 export default function LeaguesPage() {
   const [leagues, setLeagues] = useState<League[] | null>(null)
   const [loading, setLoading] = useState(true)
@@ -27,7 +31,7 @@ export default function LeaguesPage() {
         }
 
         // Fetch leagues where user is a member
-        const { data, error } = await supabase
+        const { data: membersData, error: membersError } = await supabase
           .from('league_members')
           .select(`
             league:leagues (
@@ -44,12 +48,12 @@ export default function LeaguesPage() {
             )
           `)
           .eq('user_id', currentUser.id)
-          .eq('leagues.is_active', true)
+          .eq('leagues.is_active', true) as { data: LeagueMemberWithLeague[] | null, error: Error }
 
-        if (error) throw error
+        if (membersError) throw membersError
 
         // Transform the data to get just the league objects
-        const userLeagues = (data as any[]).map(member => member.league)
+        const userLeagues = (membersData || []).map(member => member.league)
         setLeagues(userLeagues)
       } catch (error) {
         console.error('Error fetching leagues:', error)
@@ -139,7 +143,7 @@ export default function LeaguesPage() {
                 No Leagues Yet
               </h3>
               <p className="text-gray-600 mb-6">
-                You haven't joined any leagues yet. Ask a friend to share a league link with you!
+                You have not joined any leagues yet. Ask a friend to share a league link with you!
               </p>
               <Link
                 href="/leagues/new"

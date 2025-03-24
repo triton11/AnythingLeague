@@ -39,29 +39,12 @@ export default function RoundDetailPage({
   const [isEditing, setIsEditing] = useState(false)
   const [isCurrentRound, setIsCurrentRound] = useState(false)
   const [isCreator, setIsCreator] = useState(false)
-  const [userVoteCount, setUserVoteCount] = useState(0)
   const [upvotesRemaining, setUpvotesRemaining] = useState(0)
   const [downvotesRemaining, setDownvotesRemaining] = useState(0)
   const [localVotes, setLocalVotes] = useState<{ [key: string]: number }>({})
   const [isSubmittingVotes, setIsSubmittingVotes] = useState(false)
   const [hasSubmittedVotes, setHasSubmittedVotes] = useState(false)
   const supabase = createClientComponentClient<Database>()
-
-  const hasVoted = (submissionId: string) => {
-    return localVotes[submissionId] !== undefined
-  }
-
-  const getUserVoteCounts = () => {
-    let upvotes = 0
-    let downvotes = 0
-
-    Object.values(localVotes).forEach(value => {
-      if (value === 1) upvotes++
-      if (value === -1) downvotes++
-    })
-
-    return { upvotes, downvotes }
-  }
 
   useEffect(() => {
     const fetchRoundData = async () => {
@@ -386,10 +369,6 @@ export default function RoundDetailPage({
     }
   }
 
-  const getLocalVoteCount = (submissionId: string) => {
-    return localVotes[submissionId] || 0
-  }
-
   const handleStartVoting = async () => {
     if (!round) return
 
@@ -430,7 +409,7 @@ export default function RoundDetailPage({
       if (updateError) throw updateError
 
       // Check if there is a next round
-      const { data: nextRoundData, error: nextRoundError } = await supabase
+      const { data: nextRoundData } = await supabase
         .from('league_rounds')
         .select('id')
         .eq('league_id', round.league_id)
@@ -472,7 +451,7 @@ export default function RoundDetailPage({
       // Upload the file to Supabase Storage
       const fileExt = file.name.split('.').pop()
       const fileName = `${user.id}/${Date.now()}.${fileExt}`
-      const { data, error: uploadError } = await supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from('submissions')
         .upload(fileName, file, {
           cacheControl: '3600',
@@ -510,12 +489,6 @@ export default function RoundDetailPage({
         <div className="text-center py-12">Round not found</div>
       </div>
     )
-  }
-
-  const getSubmissionScore = (submissionId: string) => {
-    return submissions
-      .find(s => s.id === submissionId)
-      ?.votes.reduce((acc, v) => acc + v.value, 0) || 0
   }
 
   const getVoteTotal = (submission: Submission) => {
@@ -747,7 +720,6 @@ export default function RoundDetailPage({
           <div className="space-y-6">
             {submissions.map((submission) => {
               const isOwnSubmission = submission.user_id === user?.id
-              const currentVote = localVotes[submission.id] || 0
               const canUpvote = !isOwnSubmission && !hasSubmittedVotes && upvotesRemaining > 0
               const canDownvote = !isOwnSubmission && !hasSubmittedVotes && downvotesRemaining > 0
               const totalVotes = getVoteTotal(submission)

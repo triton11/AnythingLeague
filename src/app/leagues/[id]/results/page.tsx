@@ -4,15 +4,11 @@ import { useEffect, useState } from 'react'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import type { Database } from '@/types/database'
 
-type League = Database['public']['Tables']['leagues']['Row']
-type Submission = Database['public']['Tables']['submissions']['Row'] & {
-  users: {
-    username: string
-  }
-  votes: {
-    value: number
-  }[]
+interface LeagueResultsPageProps {
+  params: { id: string }
 }
+
+type League = Database['public']['Tables']['leagues']['Row']
 
 type UserResult = {
   username: string
@@ -20,11 +16,7 @@ type UserResult = {
   rank: number
 }
 
-export default function LeagueResultsPage({
-  params,
-}: {
-  params: { id: string }
-}) {
+export default function LeagueResultsPage({ params }: LeagueResultsPageProps) {
   const [league, setLeague] = useState<League | null>(null)
   const [results, setResults] = useState<UserResult[]>([])
   const [isLoading, setIsLoading] = useState(true)
