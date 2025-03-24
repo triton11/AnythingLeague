@@ -1,0 +1,23 @@
+insert into storage.buckets (id, name, public) 
+values ('submissions', 'submissions', true);
+
+-- Allow users to upload their own images
+create policy "Users can upload their own images"
+on storage.objects for insert
+with check (
+  bucket_id = 'submissions' 
+  and auth.uid()::text = (storage.foldername(name))[1]
+);
+
+-- Allow users to read any image in the submissions bucket
+create policy "Anyone can view images"
+on storage.objects for select
+using (bucket_id = 'submissions');
+
+-- Allow users to delete their own images
+create policy "Users can delete their own images"
+on storage.objects for delete
+using (
+  bucket_id = 'submissions' 
+  and auth.uid()::text = (storage.foldername(name))[1]
+);
