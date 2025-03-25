@@ -215,39 +215,39 @@ export default function LeagueDetailPage({ params }: LeagueDetailPageProps) {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       {/* League Header */}
       <div className="bg-white shadow-sm rounded-lg p-6 mb-8">
-        <div className="flex justify-between items-start">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">{league.name}</h1>
             <p className="mt-2 text-gray-600">{league.description}</p>
-            <div className="mt-4 flex items-center gap-4 text-sm text-gray-500">
+            <div className="mt-4 flex flex-wrap items-center gap-2 text-sm text-gray-500">
               <span>{league.number_of_rounds} rounds</span>
-              <span>•</span>
+              <span className="hidden sm:inline">•</span>
               <span>Starts {new Date(league.start_date).toLocaleDateString()}</span>
-              <span>•</span>
+              <span className="hidden sm:inline">•</span>
               <span>{members.length} members</span>
             </div>
           </div>
-          <div className="flex gap-4">
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
             {isLeagueComplete && (
               <Link
                 href={`/leagues/${params.id}/results`}
-                className="btn-primary"
+                className="btn-primary w-full sm:w-auto text-center"
               >
                 View Final Results
               </Link>
             )}
-            <div>
+            <div className="w-full sm:w-auto">
               {isMember ? (
                 <button
                   onClick={handleLeaveLeague}
-                  className="btn-secondary"
+                  className="btn-secondary w-full sm:w-auto text-center"
                 >
                   Leave League
                 </button>
               ) : (
                 <button
                   onClick={handleJoinLeague}
-                  className="btn-primary"
+                  className="btn-primary w-full sm:w-auto text-center"
                 >
                   Join League
                 </button>

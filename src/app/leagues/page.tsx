@@ -87,16 +87,6 @@ export default function LeaguesPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">My Leagues</h1>
-        <Link 
-          href="/leagues/completed"
-          className="text-purple-600 hover:text-purple-700 text-sm font-medium"
-        >
-          View completed
-        </Link>
-      </div>
-
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {leagues && leagues.length > 0 ? (
           leagues.map((league) => (

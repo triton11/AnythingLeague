@@ -3,27 +3,58 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import type { Database } from '@/types/database'
 import type { User } from '@supabase/supabase-js'
 
 export default function Navbar() {
   const [user, setUser] = useState<User | null>(null)
+  const [username, setUsername] = useState<string | null>(null)
   const router = useRouter()
+  const supabase = createClientComponentClient<Database>()
 
   useEffect(() => {
     const getUser = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       setUser(user)
+
+      if (user) {
+        // Fetch the username from the users table
+        const { data: userData } = await supabase
+          .from('users')
+          .select('username')
+          .eq('id', user.id)
+          .limit(1)
+
+        if (userData && userData.length > 0) {
+          setUsername(userData[0].username)
+        }
+      }
     }
 
     getUser()
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setUser(session?.user ?? null)
+      
+      if (session?.user) {
+        // Fetch the username when auth state changes
+        const { data: userData } = await supabase
+          .from('users')
+          .select('username')
+          .eq('id', session.user.id)
+          .limit(1)
+        
+        if (userData && userData.length > 0) {
+          setUsername(userData[0].username)
+        }
+      } else {
+        setUsername(null)
+      }
     })
 
     return () => subscription.unsubscribe()
-  }, [])
+  }, [supabase])
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()
@@ -51,6 +82,9 @@ export default function Navbar() {
                 >
                   My Leagues
                 </Link>
+                <span className="nav-link">
+                  {username || user.email?.split('@')[0] || 'User'}
+                </span>
                 <button
                   onClick={handleSignOut}
                   className="nav-link"

@@ -14,9 +14,17 @@ type Submission = Database['public']['Tables']['submissions']['Row'] & {
   votes: {
     value: number
     user_id: string
+    comment: string | null
+    users: {
+      username: string
+    }
   }[]
 }
 type League = Database['public']['Tables']['leagues']['Row']
+type LocalVote = {
+  value: number
+  comment?: string
+}
 
 export default function RoundDetailPage({
   params,
@@ -41,9 +49,10 @@ export default function RoundDetailPage({
   const [isCreator, setIsCreator] = useState(false)
   const [upvotesRemaining, setUpvotesRemaining] = useState(0)
   const [downvotesRemaining, setDownvotesRemaining] = useState(0)
-  const [localVotes, setLocalVotes] = useState<{ [key: string]: number }>({})
+  const [localVotes, setLocalVotes] = useState<{ [key: string]: LocalVote }>({})
   const [isSubmittingVotes, setIsSubmittingVotes] = useState(false)
   const [hasSubmittedVotes, setHasSubmittedVotes] = useState(false)
+  const [commentInputs, setCommentInputs] = useState<{ [key: string]: string }>({})
   const supabase = createClientComponentClient<Database>()
 
   useEffect(() => {
@@ -149,7 +158,11 @@ export default function RoundDetailPage({
             ),
             votes (
               value,
-              user_id
+              user_id,
+              comment,
+              users:user_id (
+                username
+              )
             )
           `)
           .eq('league_round_id', params.roundId)
@@ -163,10 +176,10 @@ export default function RoundDetailPage({
             ?.filter(vote => vote.user_id === currentUser?.id)
             ?.reduce((sum, vote) => sum + vote.value, 0) || 0
           if (userVotes !== 0) {
-            acc[submission.id] = userVotes
+            acc[submission.id] = { value: userVotes }
           }
           return acc
-        }, {} as { [key: string]: number }) || {}
+        }, {} as { [key: string]: LocalVote }) || {}
 
         setLocalVotes(localVotesMap)
         setHasSubmittedVotes(Object.keys(localVotesMap).length > 0)
@@ -236,7 +249,8 @@ export default function RoundDetailPage({
           ),
           votes (
             value,
-            user_id
+            user_id,
+            comment
           )
         `)
         .eq('league_round_id', params.roundId)
@@ -272,7 +286,7 @@ export default function RoundDetailPage({
     }
 
     // Calculate the new vote count and remaining votes
-    const currentVote = localVotes[submissionId] || 0
+    const currentVote = localVotes[submissionId]?.value || 0
     let newUpvotesRemaining = upvotesRemaining
     let newDownvotesRemaining = downvotesRemaining
 
@@ -289,14 +303,17 @@ export default function RoundDetailPage({
       // Reset the vote count to just the new vote
       const newVotes = {
         ...localVotes,
-        [submissionId]: value
+        [submissionId]: { value }
       }
       setLocalVotes(newVotes)
     } else {
       // Add to existing vote count if same type
       const newVotes = {
         ...localVotes,
-        [submissionId]: currentVote + value
+        [submissionId]: { 
+          value: currentVote + value,
+          comment: localVotes[submissionId]?.comment
+        }
       }
       setLocalVotes(newVotes)
     }
@@ -309,6 +326,13 @@ export default function RoundDetailPage({
     setDownvotesRemaining(newDownvotesRemaining)
   }
 
+  const handleCommentChange = (submissionId: string, comment: string) => {
+    setCommentInputs(prev => ({
+      ...prev,
+      [submissionId]: comment
+    }))
+  }
+
   const handleSubmitVotes = async () => {
     if (!user || !round || !league || hasSubmittedVotes) return
 
@@ -316,19 +340,13 @@ export default function RoundDetailPage({
     setError(null)
 
     try {
-      // Create individual votes for each upvote/downvote
-      const votes = Object.entries(localVotes).flatMap(([submissionId, value]) => {
-        const votes = []
-        // Create one vote for each upvote
-        for (let i = 0; i < Math.abs(value); i++) {
-          votes.push({
-            submission_id: submissionId,
-            user_id: user.id,
-            value: Math.sign(value) // This will be 1 for upvotes, -1 for downvotes
-          })
-        }
-        return votes
-      })
+      // Create one vote per submission with the total value and comment
+      const votes = Object.entries(localVotes).map(([submissionId, vote]) => ({
+        submission_id: submissionId,
+        user_id: user.id,
+        value: vote.value,
+        comment: commentInputs[submissionId] || null
+      }))
 
       const { error: voteError } = await supabase
         .from('votes')
@@ -346,7 +364,8 @@ export default function RoundDetailPage({
           ),
           votes (
             value,
-            user_id
+            user_id,
+            comment
           )
         `)
         .eq('league_round_id', params.roundId)
@@ -356,9 +375,12 @@ export default function RoundDetailPage({
       
       // Update local state with the submitted votes
       const submittedVotes = votes.reduce((acc, vote) => {
-        acc[vote.submission_id] = (acc[vote.submission_id] || 0) + vote.value
+        acc[vote.submission_id] = { 
+          value: vote.value,
+          comment: vote.comment
+        }
         return acc
-      }, {} as { [key: string]: number })
+      }, {} as { [key: string]: LocalVote })
       
       setLocalVotes(submittedVotes)
       setHasSubmittedVotes(true)
@@ -786,11 +808,11 @@ export default function RoundDetailPage({
                     </div>
                     <div className="flex items-center gap-4">
                       <span className={`text-lg font-semibold ${round.is_voting_open ? 
-                        (localVotes[submission.id] > 0 ? 'text-green-600' : localVotes[submission.id] < 0 ? 'text-red-600' : 'text-gray-900') :
+                        (localVotes[submission.id]?.value > 0 ? 'text-green-600' : localVotes[submission.id]?.value < 0 ? 'text-red-600' : 'text-gray-900') :
                         (totalVotes > 0 ? 'text-green-600' : totalVotes < 0 ? 'text-red-600' : 'text-gray-900')
                       }`}>
                         {round.is_voting_open ? 
-                          (localVotes[submission.id] > 0 ? `+${localVotes[submission.id]}` : localVotes[submission.id]) :
+                          (localVotes[submission.id]?.value > 0 ? `+${localVotes[submission.id]?.value}` : localVotes[submission.id]?.value) :
                           (totalVotes > 0 ? `+${totalVotes}` : totalVotes)
                         }
                       </span>
@@ -799,27 +821,36 @@ export default function RoundDetailPage({
                           <button
                             onClick={() => handleVote(submission.id, 1)}
                             disabled={!canUpvote}
-                            className={`btn-secondary ${!canUpvote ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            className={`p-2 rounded-full ${canUpvote ? 'hover:bg-green-100' : 'opacity-50'}`}
                           >
-                            Upvote
+                            <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                            </svg>
                           </button>
                           <button
                             onClick={() => handleVote(submission.id, -1)}
                             disabled={!canDownvote}
-                            className={`btn-secondary ${!canDownvote ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            className={`p-2 rounded-full ${canDownvote ? 'hover:bg-red-100' : 'opacity-50'}`}
                           >
-                            Downvote
+                            <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
                           </button>
                         </div>
                       )}
-                      {round.is_voting_open && isOwnSubmission && (
-                        <span className="text-sm text-gray-500">
-                          Your submission
-                        </span>
-                      )}
                     </div>
                   </div>
-                  {/* Vote Breakdown Table */}
+                  {round.is_voting_open && !isOwnSubmission && !hasSubmittedVotes && (
+                    <div className="mt-4">
+                      <textarea
+                        value={commentInputs[submission.id] || ''}
+                        onChange={(e) => handleCommentChange(submission.id, e.target.value)}
+                        placeholder="Add a comment (optional)"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 sm:text-sm"
+                        rows={2}
+                      />
+                    </div>
+                  )}
                   {!round.is_voting_open && submission.votes.length > 0 && (
                     <div className="mt-4 border-t border-gray-200 pt-4">
                       <h3 className="text-sm font-medium text-gray-700 mb-2">Vote Breakdown</h3>
@@ -833,6 +864,9 @@ export default function RoundDetailPage({
                               <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Votes
                               </th>
+                              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Comment
+                              </th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-gray-200">
@@ -842,16 +876,19 @@ export default function RoundDetailPage({
                                 return acc
                               }, {} as { [key: string]: number })
                             ).map(([userId, totalVotes]) => {
-                              const voter = submissions.find(s => s.user_id === userId)?.users
+                              const voter = submission.votes.find(v => v.user_id === userId)
                               return (
                                 <tr key={userId}>
                                   <td className="px-3 py-2 text-sm text-gray-900">
-                                    {voter?.username || 'Unknown User'}
+                                    {voter?.users.username || 'Unknown User'}
                                   </td>
                                   <td className="px-3 py-2 text-sm">
                                     <span className={totalVotes > 0 ? 'text-green-600' : totalVotes < 0 ? 'text-red-600' : 'text-gray-900'}>
                                       {totalVotes > 0 ? `+${totalVotes}` : totalVotes}
                                     </span>
+                                  </td>
+                                  <td className="px-3 py-2 text-sm text-gray-600">
+                                    {voter?.comment || '-'}
                                   </td>
                                 </tr>
                               )
