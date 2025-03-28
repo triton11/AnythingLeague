@@ -15,27 +15,63 @@ export default function Navbar() {
 
   useEffect(() => {
     const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      setUser(user)
-
-      if (user) {
-        // Fetch the username from the users table
-        const { data: userData } = await supabase
-          .from('users')
-          .select('username')
-          .eq('id', user.id)
-          .limit(1)
-
-        if (userData && userData.length > 0) {
-          setUsername(userData[0].username)
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession()
+        
+        if (error) throw error
+        
+        if (session?.expires_at && session.expires_at * 1000 < Date.now()) {
+          // Token is expired, attempt to refresh
+          const { data: { session: newSession }, error: refreshError } = 
+            await supabase.auth.refreshSession()
+          
+          if (refreshError || !newSession) {
+            // If refresh fails, sign out
+            await handleSignOut()
+            return
+          }
+          
+          setUser(newSession.user)
+        } else {
+          setUser(session?.user ?? null)
         }
+
+        if (session?.user) {
+          // Fetch the username from the users table
+          const { data: userData } = await supabase
+            .from('users')
+            .select('username')
+            .eq('id', session.user.id)
+            .limit(1)
+          
+          if (userData && userData.length > 0) {
+            setUsername(userData[0].username)
+          }
+        }
+      } catch (err) {
+        console.error('Error getting user:', err)
+        await handleSignOut()
       }
     }
 
     getUser()
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      setUser(session?.user ?? null)
+      if (session?.expires_at && session.expires_at * 1000 < Date.now()) {
+        // Token is expired, attempt to refresh
+        const { data: { session: newSession }, error: refreshError } = 
+          await supabase.auth.refreshSession()
+        
+        if (refreshError || !newSession) {
+          // If refresh fails, sign out
+          await handleSignOut()
+          return
+        }
+        
+        setUser(newSession.user)
+      } else {
+        setUser(session?.user ?? null)
+      }
       
       if (session?.user) {
         // Fetch the username when auth state changes
@@ -57,8 +93,47 @@ export default function Navbar() {
   }, [supabase])
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut()
-    router.push('/auth')
+    try {
+      console.log('Signing out...')
+
+      // Clear Supabase cookies manually
+      document.cookie.split(';').forEach(cookie => {
+        if (cookie.includes('sb-')) {
+          const [name] = cookie.split('=')
+          document.cookie = `${name.trim()}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`
+        }
+      })
+      
+      // Create a promise that rejects after 5 seconds
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Sign out timeout')), 5000)
+      })
+
+      // Race between sign out and timeout
+      const { error } = await Promise.race([
+        supabase.auth.signOut(),
+        timeoutPromise
+      ]) as { error: any }
+
+      if (error) throw error
+      
+      // Clear local state
+      setUser(null)
+      setUsername(null)
+      
+      // Force a hard refresh of the page
+      window.location.href = '/'
+    } catch (err) {
+      console.error('Error signing out:', err)
+      // Even if there's an error or timeout, try to clear cookies and refresh
+      document.cookie.split(';').forEach(cookie => {
+        if (cookie.includes('sb-')) {
+          const [name] = cookie.split('=')
+          document.cookie = `${name.trim()}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`
+        }
+      })
+      window.location.href = '/'
+    }
   }
 
   return (
@@ -68,7 +143,7 @@ export default function Navbar() {
           <div className="flex items-center">
             <Link href="/" className="flex items-center space-x-2 group">
               <span className="text-xl font-bold text-white group-hover:text-white/90 transition-colors duration-200">
-                AnythingLeague
+                Anything League
               </span>
             </Link>
           </div>

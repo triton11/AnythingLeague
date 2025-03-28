@@ -10,22 +10,26 @@ export async function middleware(req: NextRequest) {
     // Create the Supabase client
     const supabase = createMiddlewareClient({ req, res })
 
-    // Refresh the session - this will update the response headers
+    // Attempt to refresh the session
     const { data: { session }, error } = await supabase.auth.getSession()
-
-    // Debug logging
-    console.log('Middleware auth check:', {
-      path: req.nextUrl.pathname,
-      hasSession: !!session,
-      sessionId: session?.user?.id,
-      error: error?.message
-    })
+    
+    if (session?.expires_at && session.expires_at * 1000 < Date.now()) {
+      // Token is expired, attempt to refresh
+      const { data: { session: newSession }, error: refreshError } = 
+        await supabase.auth.refreshSession()
+      
+      if (refreshError || !newSession) {
+        // If refresh fails, redirect to auth page
+        const redirectUrl = new URL('/auth', req.url)
+        return NextResponse.redirect(redirectUrl)
+      }
+    }
 
     // Public paths that don't require authentication
     const publicPatterns = [
       /^\/$/,                    // home page
       /^\/auth$/,                // auth page
-      /^\/leagues\/?$/,          // leagues listing (with optional trailing slash)
+      /^\/leagues\/?$/,          // leagues listing
       /^\/leagues\/completed$/   // completed leagues
     ]
     const isPublicPath = publicPatterns.some(pattern => pattern.test(req.nextUrl.pathname))
