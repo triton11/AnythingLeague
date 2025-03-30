@@ -7,13 +7,43 @@ import type { User } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
 import Link from 'next/link'
 
-type League = Database['public']['Tables']['leagues']['Row']
-type LeagueMember = Database['public']['Tables']['league_members']['Row'] & {
+type LeagueMember = {
+  id: string
+  user_id: string
   users: {
     username: string
   }
 }
-type LeagueRound = Database['public']['Tables']['league_rounds']['Row']
+
+type LeagueRound = {
+  id: string
+  league_id: string
+  round_number: number
+  theme: string
+  submission_deadline: string
+  voting_deadline: string
+  is_submission_open: boolean
+  is_voting_open: boolean
+  submissions: {
+    user_id: string
+    votes: { user_id: string }[]
+  }[] | null
+}
+
+type League = {
+  id: string
+  name: string
+  description: string | null
+  creator_id: string
+  start_date: string
+  number_of_rounds: number
+  upvotes_per_user: number
+  downvotes_per_user: number
+  is_active: boolean
+  created_at: string
+  league_members: LeagueMember[]
+  league_rounds: LeagueRound[]
+}
 
 interface LeagueDetailPageProps {
   params: { id: string }
@@ -31,6 +61,7 @@ export default function LeagueDetailPage({ params }: LeagueDetailPageProps) {
   const [isCreator, setIsCreator] = useState(false)
   const [currentRoundNumber, setCurrentRoundNumber] = useState<number | null>(null)
   const [isLeagueComplete, setIsLeagueComplete] = useState(false)
+  const [expandedRounds, setExpandedRounds] = useState<{ [key: string]: boolean }>({})
   const supabase = createClientComponentClient<Database>()
 
   useEffect(() => {
@@ -46,11 +77,19 @@ export default function LeagueDetailPage({ params }: LeagueDetailPageProps) {
           .select(`
             *,
             league_members (
-              id,
               user_id,
-              total_points,
-              users:user_id (
+              users (
                 username
+              )
+            ),
+            league_rounds (
+              *,
+              submissions (
+                user_id,
+                votes (
+                  user_id,
+                  value
+                )
               )
             )
           `)
@@ -64,42 +103,27 @@ export default function LeagueDetailPage({ params }: LeagueDetailPageProps) {
         // Set members from league data
         setMembers(leagueData.league_members || [])
 
-        // Fetch rounds
-        const { data: roundsData, error: roundsError } = await supabase
-          .from('league_rounds')
-          .select('*')
-          .eq('league_id', params.id)
-          .order('round_number', { ascending: true })
+        // Set rounds from league data instead of separate query
+        setRounds(leagueData.league_rounds || [])
 
-        if (roundsError) throw roundsError
-        setRounds(roundsData || [])
-
-        // Find the current round (lowest round number with submissions open)
-        const { data: currentRoundData } = await supabase
-          .from('league_rounds')
-          .select('round_number')
-          .eq('league_id', params.id)
-          .eq('is_submission_open', true)
-          .order('round_number', { ascending: true })
-          .limit(1)
-          .single()
+        // Find the current round (lowest round number with submissions open or voting open)
+        const currentRoundData = leagueData.league_rounds.find(
+          (round: LeagueRound) => round.is_submission_open || round.is_voting_open
+        )
 
         if (currentRoundData) {
           // Check if the previous round's voting has ended
           if (currentRoundData.round_number > 1) {
-            const { data: previousRoundData } = await supabase
-              .from('league_rounds')
-              .select('is_voting_open')
-              .eq('league_id', params.id)
-              .eq('round_number', currentRoundData.round_number - 1)
-              .single()
+            const previousRoundData = leagueData.league_rounds.find(
+              (round: LeagueRound) => round.round_number === currentRoundData.round_number - 1
+            )
 
             // Only consider this the current round if the previous round's voting has ended
             if (!previousRoundData || !previousRoundData.is_voting_open) {
               setCurrentRoundNumber(currentRoundData.round_number)
             }
           } else {
-            // For round 1, just check if it has submissions open
+            // For round 1, set it as current if either submissions or voting is open
             setCurrentRoundNumber(currentRoundData.round_number)
           }
         }
@@ -113,7 +137,7 @@ export default function LeagueDetailPage({ params }: LeagueDetailPageProps) {
         }
 
         // Check if all rounds are complete
-        const allRoundsComplete = roundsData?.every(round => 
+        const allRoundsComplete = leagueData.league_rounds.every((round: LeagueRound) => 
           !round.is_submission_open && !round.is_voting_open
         )
         setIsLeagueComplete(allRoundsComplete || false)
@@ -304,6 +328,64 @@ export default function LeagueDetailPage({ params }: LeagueDetailPageProps) {
                         )}
                       </div>
                     </div>
+                    {(round.round_number === currentRoundNumber || (round.is_voting_open && round.round_number === currentRoundNumber)) && (
+                      <div className="mt-4 pt-4 border-t border-gray-200">
+                          <>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation() // Prevent round card click
+                                setExpandedRounds(prev => ({
+                                  ...prev,
+                                  [round.id]: !prev[round.id]
+                                }))
+                              }}
+                              className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900"
+                            >
+                              <svg
+                                className={`w-4 h-4 transform transition-transform ${expandedRounds[round.id] ? 'rotate-180' : ''}`}
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                              </svg>
+                              <span>Show Member Status</span>
+                            </button>
+                            {expandedRounds[round.id] && (
+                              <div className="mt-2 space-y-2">
+                                {league.league_members.map((member) => {
+                                  const hasSubmitted = round.submissions?.some(s => s.user_id === member.user_id) ?? false
+                                  const hasVoted = round.submissions?.some(s => 
+                                    s.votes?.some(v => v.user_id === member.user_id)
+                                  ) ?? false
+                                  const status = round.is_submission_open ? 
+                                    (hasSubmitted ? 'Submitted' : 'Pending') :
+                                    (round.is_voting_open ? 
+                                      (hasVoted ? 'Voted' : 'Pending') : 
+                                      (hasVoted ? 'Voted' : 'Did not vote'))
+                                  
+                                  return (
+                                    <div key={member.user_id} className="flex items-center justify-between text-sm py-1">
+                                      <div className="flex items-center gap-2">
+                                        <span className="w-2 h-2 rounded-full bg-gray-300"></span>
+                                        <span className="text-gray-600">{member.users.username}</span>
+                                      </div>
+                                      <span className={`text-xs px-2 py-0.5 rounded-full ${
+                                        status === 'Submitted' ? 'bg-green-100 text-green-800' :
+                                        status === 'Voted' ? 'bg-blue-100 text-blue-800' :
+                                        status === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
+                                        'bg-red-100 text-red-800'
+                                      }`}>
+                                        {status}
+                                      </span>
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            )}
+                          </>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

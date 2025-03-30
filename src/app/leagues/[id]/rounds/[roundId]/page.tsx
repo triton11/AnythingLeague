@@ -537,14 +537,14 @@ export default function RoundDetailPage({
                   Submissions Open
                 </span>
               )}
-              {round.is_voting_open && (
+              {round.is_voting_open && isCurrentRound && (
                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                   Voting Open
                 </span>
               )}
             </div>
           </div>
-          {isCreator && round.is_submission_open && !round.is_voting_open && (
+          {isCreator && round.is_submission_open && !round.is_voting_open && isCurrentRound && (
             <button
               onClick={handleStartVoting}
               className="btn-primary"
@@ -552,7 +552,7 @@ export default function RoundDetailPage({
               Start Voting
             </button>
           )}
-          {isCreator && round.is_voting_open && (
+          {isCreator && round.is_voting_open && isCurrentRound && (
             <button
               onClick={handleCloseVoting}
               className="btn-primary"
