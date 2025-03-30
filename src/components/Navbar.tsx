@@ -1,8 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import type { Database } from '@/types/database'
 import type { User } from '@supabase/supabase-js'
@@ -10,8 +9,51 @@ import type { User } from '@supabase/supabase-js'
 export default function Navbar() {
   const [user, setUser] = useState<User | null>(null)
   const [username, setUsername] = useState<string | null>(null)
-  const router = useRouter()
   const supabase = createClientComponentClient<Database>()
+
+  const handleSignOut = useCallback(async () => {
+    try {
+      console.log('Signing out...')
+
+      // Clear Supabase cookies manually
+      document.cookie.split(';').forEach(cookie => {
+        if (cookie.includes('sb-')) {
+          const [name] = cookie.split('=')
+          document.cookie = `${name.trim()}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`
+        }
+      })
+      
+      // Create a promise that rejects after 5 seconds
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Sign out timeout')), 5000)
+      })
+
+      // Race between sign out and timeout
+      const { error } = await Promise.race([
+        supabase.auth.signOut(),
+        timeoutPromise
+      ]) as { error: Error }
+
+      if (error) throw error
+      
+      // Clear local state
+      setUser(null)
+      setUsername(null)
+      
+      // Force a hard refresh of the page
+      window.location.href = '/'
+    } catch (err) {
+      console.error('Error signing out:', err)
+      // Even if there's an error or timeout, try to clear cookies and refresh
+      document.cookie.split(';').forEach(cookie => {
+        if (cookie.includes('sb-')) {
+          const [name] = cookie.split('=')
+          document.cookie = `${name.trim()}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`
+        }
+      })
+      window.location.href = '/'
+    }
+  }, [supabase])
 
   useEffect(() => {
     const getUser = async () => {
@@ -90,51 +132,7 @@ export default function Navbar() {
     })
 
     return () => subscription.unsubscribe()
-  }, [supabase])
-
-  const handleSignOut = async () => {
-    try {
-      console.log('Signing out...')
-
-      // Clear Supabase cookies manually
-      document.cookie.split(';').forEach(cookie => {
-        if (cookie.includes('sb-')) {
-          const [name] = cookie.split('=')
-          document.cookie = `${name.trim()}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`
-        }
-      })
-      
-      // Create a promise that rejects after 5 seconds
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Sign out timeout')), 5000)
-      })
-
-      // Race between sign out and timeout
-      const { error } = await Promise.race([
-        supabase.auth.signOut(),
-        timeoutPromise
-      ]) as { error: any }
-
-      if (error) throw error
-      
-      // Clear local state
-      setUser(null)
-      setUsername(null)
-      
-      // Force a hard refresh of the page
-      window.location.href = '/'
-    } catch (err) {
-      console.error('Error signing out:', err)
-      // Even if there's an error or timeout, try to clear cookies and refresh
-      document.cookie.split(';').forEach(cookie => {
-        if (cookie.includes('sb-')) {
-          const [name] = cookie.split('=')
-          document.cookie = `${name.trim()}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`
-        }
-      })
-      window.location.href = '/'
-    }
-  }
+  }, [supabase, handleSignOut])
 
   return (
     <nav className="bg-purple-600 sticky top-0 z-50 w-full">

@@ -11,7 +11,7 @@ export async function middleware(req: NextRequest) {
     const supabase = createMiddlewareClient({ req, res })
 
     // Attempt to refresh the session
-    const { data: { session }, error } = await supabase.auth.getSession()
+    const { data: { session } } = await supabase.auth.getSession()
     
     if (session?.expires_at && session.expires_at * 1000 < Date.now()) {
       // Token is expired, attempt to refresh
