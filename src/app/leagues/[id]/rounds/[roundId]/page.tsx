@@ -552,7 +552,7 @@ export default function RoundDetailPage({
               Start Voting
             </button>
           )}
-          {isCreator && round.is_voting_open && isCurrentRound && (
+          {isCreator && round.is_voting_open && (
             <button
               onClick={handleCloseVoting}
               className="btn-primary"
