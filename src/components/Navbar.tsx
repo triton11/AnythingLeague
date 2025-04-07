@@ -2,8 +2,6 @@
 
 import Link from 'next/link'
 import { useEffect, useState, useCallback } from 'react'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
-import type { Database } from '@/types/database'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../app/supabaseClient'
 

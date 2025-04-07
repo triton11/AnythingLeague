@@ -1,11 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { useRouter } from 'next/navigation'
-import type { Database } from '@/types/database'
 import { supabase } from '../supabaseClient'
-
 
 export default function AuthPage() {
   const [email, setEmail] = useState('')

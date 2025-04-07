@@ -2,7 +2,6 @@
 
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import type { Database } from '@/types/database'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../supabaseClient'
@@ -21,7 +20,6 @@ export default function LeaguesPage() {
   useEffect(() => {
     async function fetchUserLeagues() {
       try {
-        const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
         // Get current user
         const { data: { user: currentUser } } = await supabase.auth.getUser()
         setUser(currentUser)
