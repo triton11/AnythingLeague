@@ -5,11 +5,12 @@ import { useEffect, useState, useCallback } from 'react'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import type { Database } from '@/types/database'
 import type { User } from '@supabase/supabase-js'
+import { supabase } from '../app/supabaseClient'
+
 
 export default function Navbar() {
   const [user, setUser] = useState<User | null>(null)
   const [username, setUsername] = useState<string | null>(null)
-  const supabase = createClientComponentClient<Database>()
 
   const handleSignOut = useCallback(async () => {
     try {

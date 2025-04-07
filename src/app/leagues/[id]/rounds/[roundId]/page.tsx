@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import type { User } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
+import { supabase } from '../../../../supabaseClient'
 
 type LeagueRound = Database['public']['Tables']['league_rounds']['Row']
 type Submission = Database['public']['Tables']['submissions']['Row'] & {
@@ -53,7 +54,6 @@ export default function RoundDetailPage({
   const [isSubmittingVotes, setIsSubmittingVotes] = useState(false)
   const [hasSubmittedVotes, setHasSubmittedVotes] = useState(false)
   const [commentInputs, setCommentInputs] = useState<{ [key: string]: string }>({})
-  const supabase = createClientComponentClient<Database>()
 
   useEffect(() => {
     const fetchRoundData = async () => {

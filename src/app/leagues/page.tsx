@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import type { Database } from '@/types/database'
 import type { User } from '@supabase/supabase-js'
+import { supabase } from '../supabaseClient'
 
 type League = Database['public']['Tables']['leagues']['Row']
 
@@ -16,11 +17,11 @@ export default function LeaguesPage() {
   const [leagues, setLeagues] = useState<League[] | null>(null)
   const [loading, setLoading] = useState(true)
   const [user, setUser] = useState<User | null>(null)
-  const supabase = createClientComponentClient<Database>()
 
   useEffect(() => {
     async function fetchUserLeagues() {
       try {
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
         // Get current user
         const { data: { user: currentUser } } = await supabase.auth.getUser()
         setUser(currentUser)

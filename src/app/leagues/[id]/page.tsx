@@ -6,6 +6,8 @@ import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import type { User } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
 import Link from 'next/link'
+import { supabase } from '../../supabaseClient'
+
 
 type LeagueMember = {
   id: string
@@ -62,7 +64,6 @@ export default function LeagueDetailPage({ params }: LeagueDetailPageProps) {
   const [currentRoundNumber, setCurrentRoundNumber] = useState<number | null>(null)
   const [isLeagueComplete, setIsLeagueComplete] = useState(false)
   const [expandedRounds, setExpandedRounds] = useState<{ [key: string]: boolean }>({})
-  const supabase = createClientComponentClient<Database>()
 
   useEffect(() => {
     const fetchData = async () => {

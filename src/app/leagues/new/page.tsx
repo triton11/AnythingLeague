@@ -8,6 +8,7 @@ import { z } from 'zod'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import type { User } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
+import { supabase } from '../../supabaseClient'
 
 const createLeagueSchema = z.object({
   name: z.string().min(3, 'Name must be at least 3 characters'),
@@ -28,7 +29,6 @@ export default function NewLeaguePage() {
   const [error, setError] = useState<string | null>(null)
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const supabase = createClientComponentClient<Database>()
 
   const {
     register,

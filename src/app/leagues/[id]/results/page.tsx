@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import type { Database } from '@/types/database'
+import { supabase } from '../../../supabaseClient'
 
 interface LeagueResultsPageProps {
   params: { id: string }
@@ -21,7 +22,6 @@ export default function LeagueResultsPage({ params }: LeagueResultsPageProps) {
   const [results, setResults] = useState<UserResult[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const supabase = createClientComponentClient<Database>()
 
   useEffect(() => {
     const fetchResults = async () => {

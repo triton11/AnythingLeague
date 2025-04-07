@@ -7,6 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import type { Database } from '@/types/database'
+import { supabase } from '../../../../supabaseClient'
 
 const createRoundSchema = z.object({
   theme: z.string().min(3, 'Theme must be at least 3 characters'),
@@ -32,7 +33,6 @@ export default function NewRoundPage({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [nextRoundNumber, setNextRoundNumber] = useState<number | null>(null)
-  const supabase = createClientComponentClient<Database>()
 
   const {
     register,
